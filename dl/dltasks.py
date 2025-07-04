@@ -19,7 +19,7 @@ Import via
     from dl import datalab
 """
 
-#print ('DLTASKS DEV')
+#print('DLTASKS DEV')
 
 import sys
 from sys import platform
@@ -48,7 +48,6 @@ try:
     from urllib import quote_plus               # Python 2
 except ImportError:
     import configparser as ConfigParser          # Python 2
-    from urllib.parse import quote_plus         # Python 3
 
 try:
     from http.client import HTTPConnection # py3
@@ -81,7 +80,7 @@ from dl import storeClient
 from dl import resClient
 
 
-# Uncomment to print HTTP and response headers
+# Uncomment to print(HTTP and response headers
 httplib2.debuglevel = 0
 HTTPConnection.debuglevel = 0
 
@@ -198,9 +197,6 @@ class DataLab:
         else:
             self.config.read('%s/dl.conf' % self.home)
 
-        # Set script variables
-        CAPS_DIR = os.getenv('VOSPACE_CAPSDIR', '../caps')
-
         try:
             # Older versions of dl.conf may not have these configs.
             authClient.set_svc_url(self.config.get('auth','svc_url'))
@@ -244,6 +240,7 @@ class Task:
         self.description = description
         self.logger = None
         self.params = []
+        self.receiver = None
 
     def run(self):
         pass
@@ -263,13 +260,13 @@ class Task:
     def addStdOptions(self):
         self.addOption(" ", Option( " ", "", " ", default=False))
         self.addOption("verbose",
-            Option( "verbose", "", "print verbose level log messages",
+            Option( "verbose", "", "print(verbose level log messages",
                     default=False))
         self.addOption("debug",
-            Option("debug", "", "print debug log level messages",
+            Option("debug", "", "print(debug log level messages",
                     default=False))
         self.addOption("warning",
-            Option( "warning", "", "print warning level log messages",
+            Option( "warning", "", "print(warning level log messages",
                     default=False))
 
 
@@ -308,7 +305,7 @@ class Task:
             opt = getattr(self, name)
             opt.value = value
         else:
-            print ("Task '%s' has no option '%s'" % (self.name, name))
+            print("Task '%s' has no option '%s'" % (self.name, name))
 
 
     def getSampConnect(self):
@@ -317,7 +314,7 @@ class Task:
         # Get a SAMP client
         client = SAMPIntegratedClient()
         client.connect()
-        r = Receiver(client)
+        self.receiver = Receiver(client)
         return client
 
 
@@ -344,6 +341,7 @@ class Task:
     def listen(self, client):  # notification type, params, run?
         ''' Setup a listener for a specific SAMP message.
         '''
+        r = self.receiver
         client.bind_receive_notification("coord.pointAt.sky", r.point_select)
         try:
             while True:
@@ -362,130 +360,58 @@ class Task:
         ''' Handle call response
         '''
         #if resp.status_code != 200:
-        #    print (resp.text)
+        #    print(resp.text)
         #elif self.verbose.value or self.debug.value:
-        #    print (resp.text)
+        #    print(resp.text)
         pass
 
 
 ################################################
-#  Print Current Service URLs Tasks
+#  print(Current Service URLs Tasks
 ################################################
 
 class Version(Task):
     '''
-        Print the task version.
+        print(the task version.
     '''
     def __init__(self, datalab):
-        Task.__init__(self, datalab, 'version', 'Print task version')
+        Task.__init__(self, datalab, 'version', 'print(task version')
         self.addStdOptions()
 
     def run(self):
         from dl import __version__ as dlver
-        print ("Task Version:  " + dlver)
+        print("Task Version:  " + dlver)
 
 
 class Services(Task):
     '''
-        Print the available data services.
+        print(the available data services.
     '''
     def __init__(self, datalab):
         Task.__init__(self, datalab, 'services',
-                      'Print available data services')
+                      'print(available data services')
         self.addOption("svc_type",
             Option("svc_type", "", "Service type (vos|scs|sia|ssa)",
                 required=False, default=None))
         self.addStdOptions()
 
     def run(self):
-        print (queryClient.services (svc_type=self.svc_type.value))
+        print(queryClient.services (svc_type=self.svc_type.value))
 
 
 class SvcURLs(Task):
     '''
-        Print the current service URLS in use.
+        print(the current service URLS in use.
     '''
     def __init__(self, datalab):
-        Task.__init__(self, datalab, 'svc_urls', 'Print service URLs in use')
+        Task.__init__(self, datalab, 'svc_urls', 'print(service URLs in use')
         self.addStdOptions()
 
     def run(self):
-        print ('      Auth Mgr:  ' + authClient.get_svc_url())
-        print ('     Query Mgr:  ' + queryClient.get_svc_url())
-        print ('   Storage Mgr:  ' + storeClient.get_svc_url())
-        print ('  Resource Mgr:  ' + resClient.get_svc_url())
-
-
-
-################################################
-#  Initialize Data Lab config information
-################################################
-
-class Init(Task):
-    '''
-        Print the current service URLS in use.
-    '''
-    def __init__(self, datalab):
-        Task.__init__(self, datalab, 'init', 'Initialize the Data Lab config')
-        self.addOption("verify",
-                Option("verify", False, "Verify actions?", required=False))
-        self.addStdOptions()
-
-        self.home = '%s/.datalab' % os.path.expanduser('~')
-        self.datalab = datalab
-
-    def run(self):
-        ''' Initialize the Data Lab configuration.
-        '''
-        # TODO -- Logout any existing users ....
-        if self.verify.value:
-            answer = raw_input("Logout existing users (Y/N)? (default: Y): ")
-            if answer == '' or answer is None or answer.lower()[:1] == 'y':
-                if self.verbose.value == True:
-                    print ('Removing %s ....' % self.home)
-        logout_task = tasks['logout'](self.datalab)
-        logout_task.run()
-
-        # Check that $HOME/.datalab exists
-        if self.verify.value:
-            answer = raw_input("Delete $HOME/.datalab (Y/N)? (default: Y): ")
-            if answer == '' or answer is None or answer.lower()[:1] == 'y':
-                if self.verbose.value == True:
-                    print ('Removing %s ....' % self.home)
-                shutil.rmtree(self.home)
-        if not os.path.exists(self.home):
-            os.makedirs(self.home)
-
-        # See if datalab conf file exists
-        self.config = ConfigParser.RawConfigParser(allow_no_value=True)
-        if not os.path.exists('%s/dl.conf' % self.home):
-            if self.verbose.value == True:
-                print ('Initializing %s ....' % self.home)
-            self.config.add_section('datalab')
-            self.config.set('datalab', 'created', strftime(
-                '%Y-%m-%d %H:%M:%S', gmtime()))
-            self.config.add_section('login')
-            self.config.set('login', 'status', 'loggedout')
-            self.config.set('login', 'user', '')
-            self.config.set('login', 'authtoken', '')
-
-            self.config.add_section('auth')
-            self.config.set('auth', 'profile', 'default')
-            self.config.set('auth', 'svc_url', AM_URL)
-
-            self.config.add_section('query')
-            self.config.set('query', 'profile', 'default')
-            self.config.set('query', 'svc_url', QM_URL)
-
-            self.config.add_section('storage')
-            self.config.set('storage', 'profile', 'default')
-            self.config.set('storage', 'svc_url', SM_URL)
-
-            self.config.add_section('vospace')
-            self.config.set('vospace', 'mount', '')
-            self._write()
-        else:
-            self.config.read('%s/dl.conf' % self.home)
+        print('      Auth Mgr:  ' + authClient.get_svc_url())
+        print('     Query Mgr:  ' + queryClient.get_svc_url())
+        print('   Storage Mgr:  ' + storeClient.get_svc_url())
+        print('  Resource Mgr:  ' + resClient.get_svc_url())
 
 
 
@@ -528,31 +454,31 @@ class Login(Task):
                 _token = self.dl.get("login", "authtoken")
                 if not authClient.isValidToken (_token):
                     if self.do_login() != "OK":
-                        print (self.login_error)
+                        print(self.login_error)
                         sys.exit (-1)
                 else:
-                    print ("User '%s' is already logged in to the Data Lab" % \
+                    print("User '%s' is already logged in to the Data Lab" % \
                             self.user.value)
             else:
                 # We're logging in as a different user.
                 if self.do_login() != "OK":
-                    print (self.login_error)
+                    print(self.login_error)
                     sys.exit (-1)
                 else:
                     # Log a user into the Data Lab
-                    print ("Welcome back to the Data Lab, %s" % self.user.value)
+                    print("Welcome back to the Data Lab, %s" % self.user.value)
         else:
             # If we're not logged in, do so using the name/password provided.
             if self.do_login() != "OK":
-                print (self.login_error)
+                print(self.login_error)
                 sys.exit (-1)
             else:
                 # Log a user into the Data Lab
-                print ("Welcome to the Data Lab, %s" % self.user.value)
+                print("Welcome to the Data Lab, %s" % self.user.value)
 
         # Default parameters if the VOSpace mount is requested.
         if self.mount.value != "":
-            print ("Initializing virtual storage mount")
+            print("Initializing virtual storage mount")
             mount = Mountvofs(self.dl)
             mount.setOption('vospace', 'vos:')
             mount.setOption('mount', self.mount.value)
@@ -599,7 +525,7 @@ class Login(Task):
                 self.dl.save("login", "user", "")
                 self.dl.save("login", "authtoken", "")
                 self.dl.save(self.user.value, "authtoken", '')
-        except Exception as e:
+        except Exception:
             pass
 
         # Get the security token for the user
@@ -630,27 +556,27 @@ class Logout(Task):
 
     def run(self):
         if self.status == 'loggedout':
-            print ("No user is currently logged into the Data Lab")
+            print("No user is currently logged into the Data Lab")
             return
         else:
             token = getUserToken(self)
             user, uid, gid, hash = token.strip().split('.', 3)
             res = authClient.logout (token)
             if res != "OK":
-                print ("Error: %s" % res)
-                #sys.exit (-1)
+                print("Error: %s" % res)
+                sys.exit(-1)
             if self.unmount.value != "":
-                print ("Unmounting remote space")
+                print("Unmounting remote space")
                 cmd = "umount %s" % self.unmount.value
                 pipe = Popen(cmd, shell=True, stdout=PIPE)
-                output = pipe.stdout.read()
+                pipe.stdout.read()
                 self.dl.save("vospace", "mount", "")
             self.dl.save("login", "status", "loggedout")
             self.dl.save("login", "user", "")
             self.dl.save("login", "authtoken", "")
             self.dl.save(user, "authtoken", '')
 
-            print ("'%s' is now logged out of the Data Lab" % user)
+            print("'%s' is now logged out of the Data Lab" % user)
 
 
 class Status(Task):
@@ -664,33 +590,33 @@ class Status(Task):
     def run(self):
         status = self.dl.get("login", "status")
         if status == "loggedout" or not authClient.isUserLoggedIn(getUserName(self)):
-            print ("No user is currently logged into the Data Lab")
+            print("No user is currently logged into the Data Lab")
         else:
-            print ("User %s is logged into the Data Lab" % \
+            print("User %s is logged into the Data Lab" % \
                     self.dl.get("login", "user"))
 
         if self.dl.get("vospace", "mount") != "":
             if status != "loggedout":
-                print ("The user's Virtual Storage is mounted at %s" % \
+                print("The user's Virtual Storage is mounted at %s" % \
                     self.dl.get("vospace", "mount"))
             else:
-                print ("The last user's Virtual Storage is still mounted at %s" % \
+                print("The last user's Virtual Storage is still mounted at %s" % \
                     self.dl.get("vospace", "mount"))
 
 
 class WhoAmI(Task):
     '''
-        Print the current active user.
+        print(the current active user.
     '''
     def __init__(self, datalab):
-        Task.__init__(self, datalab, 'whoami', 'Print the current active user')
+        Task.__init__(self, datalab, 'whoami', 'print(the current active user')
         self.addStdOptions()
 
     def run(self):
         if authClient.isUserLoggedIn(getUserName(self)):
-            print (getUserName(self))
+            print(getUserName(self))
         else:
-            print ('anonymous')
+            print('anonymous')
 
 
 
@@ -700,10 +626,10 @@ class WhoAmI(Task):
 
 class Schema(Task):
     '''
-        Print information about data servicce schema
+        print(information about data servicce schema
     '''
     def __init__(self, datalab):
-        Task.__init__(self, datalab, 'schema', 'Print data service schema info')
+        Task.__init__(self, datalab, 'schema', 'print(data service schema info')
         self.addOption("val",
             Option("val", "", "Value to list ([[<schema>][.<table>][.<col>]])",
                 required=False, default=None))
@@ -718,7 +644,7 @@ class Schema(Task):
         #        required=False, default=None))
 
     def run(self):
-        print (queryClient.schema (value=self.val.value, format='text',
+        print(queryClient.schema (value=self.val.value, format='text',
                                   profile=self.profile.value))
 
 
@@ -748,17 +674,17 @@ class AddCapability(Task):
 
     def run(self):
         if self.listcap.value:
-            print ("The available capabilities are: ")
+            print("The available capabilities are: ")
             for file in glob.glob(self.capsdir):
-                print (file[:file.index("_cap.conf")])
+                print(file[:file.index("_cap.conf")])
         else:
             mountpoint = self.dl.get('vospace', 'mount')
             if mountpoint is None:
-                print ("No mounted Virtual Storage can be found")
+                print("No mounted Virtual Storage can be found")
             else:
                 if not os.path.exists("%s/%s_cap.conf" % \
                     (self.capsdir, self.cap.value)):
-                        print ("The capability '%s' is not known" % \
+                        print("The capability '%s' is not known" % \
                             self.cap.value)
                 else:
                     shutil.copy("%s/%s_cap.conf" % (self.capsdir,
@@ -776,9 +702,9 @@ class ListCapability(Task):
         self.capsdir = CAPS_DIR
 
     def run(self):
-        print ("The available capabilities are: ")
+        print("The available capabilities are: ")
         for file in glob.glob("%s/*_cap.conf" % self.capsdir):
-            print ("  %s" % file[file.rindex("/") + 1:file.index("_cap.conf")])
+            print("  %s" % file[file.rindex("/") + 1:file.index("_cap.conf")])
 
 
 
@@ -834,8 +760,8 @@ class Query2 (Task):
 
         if self.adql.value is None or self.adql.value == '':
             if self.sql.value is None or self.sql.value == '':
-                print ("Error: At least one of 'adql' or 'sql' is required.")
-                sys.exit (-1)
+                sys.stderr.write("Error: At least one of 'adql' or 'sql' is required.")
+                sys.exit(-1)
             elif os.path.exists (self.sql.value):
                 with open (self.sql.value, "r") as fd:
                     sql = fd.read (os.path.getsize(self.sql.value)+1)
@@ -862,18 +788,18 @@ class Query2 (Task):
                         stream=self.stream.value)
 
             if getattr(self,"async").value:
-                print (res)                         # Return the JobID
+                print(res)                         # Return the JobID
             elif self.out.value== '' or self.out.value is None:
-                print (res)                         # Return the results
+                print(res)                         # Return the results
         except Exception as e:
-            if not getattr(self,"async").value and str(e) is not None:
+            if not getattr(self, "async").value and str(e) is not None:
                 err = str(e)
                 if err.find("Time-out") > 0:
-                    print ("Error: Sync query timeout, try an async query")
+                    sys.stderr.write("Error: Sync query timeout, try an async query\n")
                 else:
-                    print (str(e))
+                    raise e
             else:
-                print (str(e))
+                raise e
 
 
 class QueryStatus(Task):
@@ -888,7 +814,7 @@ class QueryStatus(Task):
 
     def run(self):
         token = getUserToken(self)
-        print (queryClient.status (token, jobId=self.jobId.value))
+        print(queryClient.status (token, jobId=self.jobId.value))
 
 
 class QueryResults(Task):
@@ -905,8 +831,8 @@ class QueryResults(Task):
 
     def run(self):
         token = getUserToken(self)
-        print (queryClient.results (token, jobId=self.jobId.value,
-                                    fname=self.fname.value))
+        print(queryClient.results(token, jobId=self.jobId.value,
+                                  fname=self.fname.value))
 
 
 class QueryStatus(Task):
@@ -921,7 +847,7 @@ class QueryStatus(Task):
 
     def run(self):
         token = getUserToken(self)
-        print (queryClient.status (token, jobId=self.jobId.value))
+        print(queryClient.status (token, jobId=self.jobId.value))
 
 
 class QueryProfiles(Task):
@@ -942,157 +868,12 @@ class QueryProfiles(Task):
     def run(self):
         token = getUserToken(self)
         if self.debug.value:
-            print (self.__dict__)
+            print(self.__dict__)
         if self.format.value == 'text':
-            print ('\nQuery Manager Profiles:\n-----------------------')
-        print (str(queryClient.list_profiles (token,
+            print('\nQuery Manager Profiles:\n-----------------------')
+        print(str(queryClient.list_profiles (token,
                 profile=self.profile.value, format=self.format.value)))
 
-
-
-class Query(Task):
-    '''
-        Send a query to a remote query service (OLD VERSION - NOT USED))
-    '''
-    def __init__(self, datalab):
-        Task.__init__(self, datalab, 'query',
-                      'Query a remote data service in the Data Lab')
-        self.addOption("adql",
-            Option("adql", "", "ADQL statement", required=False))
-        self.addOption("sql",
-            Option("sql", "", "Input SQL string or filename", required=False))
-        self.addOption("uri",
-            Option("uri", "", "Remote dataset URI", required=False,
-                default="dldb"))
-        self.addOption("fmt",
-            Option("fmt", "", "Output format (ascii|csv|tsv|fits|votable)",
-                required=False))
-        self.addOption("out",
-            Option("out", "", "Output filename or destination",
-                required=False))
-        self.addOption("in",
-            Option("in", "", "Input filename", required=False))
-        self.addOption("async",
-            Option("async", "", "Asynchronous query?", required=False,
-                    default="false"))
-        self.addOption("addArgs",
-            Option("addArgs", "",
-                "Additional arguments to pass to the query service",
-                required=False))
-        self.addStdOptions()
-
-    def run(self):
-        token = getUserToken(self)
-        h = httplib2.Http()
-
-        colon = self.uri.value.find(":")
-        scheme = ('' if colon < 0 else self.uri.value[:colon])
-
-        if scheme == '':
-            self.dbquery(h, QM_URL, token)
-        elif scheme == 'mydb':
-            self.dbquery(h, url, token)
-        elif scheme == 'http':
-            self.httpquery(h, self.uri.value, token)
-        elif scheme == 'ivo':
-            self.ivoquery(h, self.uri.value, token, self.out.value)
-        else:
-            print ("'uri' parameter does not begin with a recognized scheme")
-
-    def dbquery(self, h, url, token):
-        # Query the Data Lab query service
-        headers = {'Content-Type': 'text/ascii',
-                   'X-DL-AuthToken': token}  # application/x-sql
-        if 'mydb' in self.adql.value:  # Demo hack
-            out = self.out.value.replace("vos://", "/tmp/vospace/")
-            shutil.copyfile("demo/ltg.csv", out)
-        elif self.sql.value != '':
-            sql = open(self.sql.value).read()
-            dburl = '%s/query?ofmt=%s&out=%s' % \
-                        (url, self.fmt.value, self.out.value)
-            resp, content = h.request(dburl, 'POST', body=sql, headers=headers)
-        else:
-            query = quote_plus(self.adql.value)
-            dburl = '%s/query?adql=%s&ofmt=%s&out=%s' % (
-                url, query, self.fmt.value, self.out.value)
-            resp, content = h.request(dburl, 'GET', headers=headers)
-        output = self.out.value
-        if output != '':
-            if output[:output.index(':')] not in ['vos', 'mydb']:
-                file = open(output, 'wb')
-                file.write(content)
-                file.close()
-        else:
-            print (content)
-
-    def httpquery(self, h, url, token):
-        # Send a query to remote URL
-        # Hack for CoDR demo
-        count = 0
-        for line in open(self.input.value):
-            if '#' not in line:
-                parts = line.split(",")
-                httpurl = url + \
-                    "?POS=%s,%s&SIZE=0.0000555" % (parts[0], parts[2].strip())
-                print (url)
-                resp, content = h.request(httpurl, 'GET')
-                if "vos://" in self.out.value:
-                    out = self.out.value.replace("vos://", "/tmp/vospace/")
-                    file = open(out + "_%s" % count, 'wb')
-                    file.write(content)
-                    file.close()
-            count += 1
-
-    def ivoquery(self, h, uri, token, out):
-        # Send a query to remote IVOA service
-        headers = {'X-DL-AuthToken': token}
-        url = "%s/query?uri=%s&out=%s" % (QM_URL, uri, out)
-        resp, content = h.request(url, 'GET', headers=headers)
-        if out == '':
-            print (content)
-
-
-
-################################################
-#  MyDB Tasks
-################################################
-
-class ListMyDB(Task):
-    '''
-        List the user's MyDB tables. [DEPRECATED]
-    '''
-    def __init__(self, datalab):
-        Task.__init__(self, datalab, 'listdb', 'List the user MyDB tables')
-        self.addOption("table", Option("table", "",
-                        "Table name", required=False))
-        self.addStdOptions()
-
-    def run(self):
-        token = getUserToken(self)
-        try:
-            res = queryClient.list (token=token, table=self.table.value)
-        except Exception as e:
-            print ("Error listing MyDB tables: " % str(e))
-        else:
-            print (res)
-
-
-class DropMyDB(Task):
-    '''
-        Drop a user's MyDB table. [DEPRECATED]
-    '''
-    def __init__(self, datalab):
-        Task.__init__(self, datalab, 'dropdb', 'Drop a user MyDB table')
-        self.addOption("table",
-            Option("table", "", "Table name", required=True))
-        self.addStdOptions()
-
-    def run(self):
-        token = getUserToken(self)
-        try:
-            queryClient.drop (token, table=self.table.value)
-        except Exception as e:
-            print ("Error dropping table '%s': %s" % (self.table.value, str(e)))
 
 
 class MyDB_List(Task):
@@ -1107,12 +888,8 @@ class MyDB_List(Task):
 
     def run(self):
         token = getUserToken(self)
-        try:
-            res = queryClient.mydb_list (token, table=self.table.value)
-        except Exception as e:
-            print ("Error listing MyDB tables: %s" % str(e))
-        else:
-            print (res)
+        res = queryClient.mydb_list (token, table=self.table.value)
+        print(res)
 
 
 class MyDB_Drop(Task):
@@ -1127,12 +904,8 @@ class MyDB_Drop(Task):
 
     def run(self):
         token = getUserToken(self)
-        try:
-            res = queryClient.mydb_drop (token, self.table.value)
-        except Exception as e:
-            print ("Error dropping table '%s': %s" % (self.table.value,str(e)))
-        else:
-            print (res)
+        res = queryClient.mydb_drop (token, self.table.value)
+        print(res)
 
 
 class MyDB_Create(Task):
@@ -1149,13 +922,9 @@ class MyDB_Create(Task):
 
     def run(self):
         token = getUserToken(self)
-        try:
-            res = queryClient.mydb_create (token, self.table.value,
-                                           self.schema.value)
-        except Exception as e:
-            print ("Error creating table '%s': %s" % (self.table.value,str(e)))
-        else:
-            print (res)
+        res = queryClient.mydb_create (token, self.table.value,
+                                       self.schema.value)
+        print(res)
 
 
 class MyDB_Import(Task):
@@ -1175,15 +944,10 @@ class MyDB_Import(Task):
 
     def run(self):
         token = getUserToken(self)
-        try:
-            res = queryClient.mydb_import (token, self.table.value,
-                                           self.data.value,
-                                           append=self.append.value)
-        except Exception as e:
-            print ("Error importing table '%s': %s" % \
-                     (self.table.value, str(e)))
-        else:
-            print (res)
+        res = queryClient.mydb_import (token, self.table.value,
+                                       self.data.value,
+                                       append=self.append.value)
+        print(res)
 
 
 class MyDB_Insert(Task):
@@ -1204,20 +968,16 @@ class MyDB_Insert(Task):
 
     def run(self):
         token = getUserToken(self)
-        try:
-            res = queryClient.mydb_list (token, table=self.table.value)
-            if res.find('not known') > 0:
-                res = "Error: MyDB table '%s' does not exist" % self.table.value
+        res = queryClient.mydb_list (token, table=self.table.value)
+        if res.find('not known') > 0:
+            res = "Error: MyDB table '%s' does not exist" % self.table.value
 
-            else:
-                # Table exists, so just insert the data.
-                res = queryClient.mydb_insert (token, self.table.value,
-                                               self.data.value,
-                                               csv_header=self.csv_header.value)
-        except Exception as e:
-            print (str(e))
         else:
-            print (res)
+            # Table exists, so just insert the data.
+            res = queryClient.mydb_insert (token, self.table.value,
+                                           self.data.value,
+                                           csv_header=self.csv_header.value)
+        print(res)
 
 
 class MyDB_Index(Task):
@@ -1242,16 +1002,12 @@ class MyDB_Index(Task):
 
     def run(self):
         token = getUserToken(self)
-        try:
-            res = queryClient.mydb_index (token, self.table.value,
-                                           self.column.value, 
-                                           q3c=self.q3c.value,
-                                           cluster=self.cluster.value,
-                                           async_=self.async_.value)
-        except Exception as e:
-            print ("Error indexing table '%s': %s" % (self.table.value,str(e)))
-        else:
-            print (res)
+        res = queryClient.mydb_index (token, self.table.value,
+                                       self.column.value, 
+                                       q3c=self.q3c.value,
+                                       cluster=self.cluster.value,
+                                       async_=self.async_.value)
+        print(res)
 
 
 class MyDB_Truncate(Task):
@@ -1267,13 +1023,8 @@ class MyDB_Truncate(Task):
 
     def run(self):
         token = getUserToken(self)
-        try:
-            res = queryClient.mydb_truncate (token, self.table.value)
-        except Exception as e:
-            print ("Error truncating table '%s': %s" % \
-                   (self.table.value,str(e)))
-        else:
-            print (res)
+        res = queryClient.mydb_truncate (token, self.table.value)
+        print(res)
 
 
 class MyDB_Rename(Task):
@@ -1290,12 +1041,8 @@ class MyDB_Rename(Task):
 
     def run(self):
         token = getUserToken(self)
-        try:
-            res = queryClient.mydb_rename(token, self.old.value, self.new.value)
-        except Exception as e:
-            print ("Error renaming table '%s': %s" % (self.old.value,str(e)))
-        else:
-            print (res)
+        res = queryClient.mydb_rename(token, self.old.value, self.new.value)
+        print(res)
 
 
 class MyDB_Copy(Task):
@@ -1312,14 +1059,9 @@ class MyDB_Copy(Task):
 
     def run(self):
         token = getUserToken(self)
-        try:
-            res = queryClient.mydb_copy (token, self.source.value,
-                                         self.target.value)
-        except Exception as e:
-            print ("Error copying table '%s': %s" % (self.old.value,str(e)))
-        else:
-            print (res)
-
+        res = queryClient.mydb_copy (token, self.source.value,
+                                     self.target.value)
+        print(res)
 
 
 
@@ -1352,7 +1094,7 @@ class LaunchJob(Task):
             job = self.getJob(job)
             job.run(params)
         else:
-            print ("The remote task '%s' is not supported" % self.cmd.value)
+            print("The remote task '%s' is not supported" % self.cmd.value)
 
     def validJob(self, job):
         return False
@@ -1424,7 +1166,7 @@ class Mountvofs(Task):
         conn = vos.Connection(vospace_token=token)
 
         if platform == "darwin":
-            print ("mounting darwin fuse....")
+            print("mounting darwin fuse....")
             fuse = FUSE(VOFS(root, self.cache_dir.value, opt,
                              conn=conn, cache_limit=self.cache_limit.value,
                              cache_nodes=self.cache_nodes.value,
@@ -1442,8 +1184,7 @@ class Mountvofs(Task):
                         noappledouble=True,
                         foreground=self.foreground.value)
         else:
-          try:
-            print ("mounting linux fuse....")
+            print("mounting linux fuse....")
             fuse = FUSE(VOFS(root, self.cache_dir.value, opt,
                              conn=conn, cache_limit=self.cache_limit.value,
                              cache_nodes=self.cache_nodes.value,
@@ -1455,11 +1196,9 @@ class Mountvofs(Task):
                         readonly=self.readonly.value,
                         allow_other=self.allow_other.value,
                         foreground=self.foreground.value)
-            print ("done mounting linux fuse....")
-          except Exception as e:
-            print ("FUSE MOUNT EXCEPTION: " + str(e))
+            print("done mounting linux fuse....")
 
-        print ("fuse = " + str(fuse))
+        print("fuse = " + str(fuse))
         if not fuse:
             self.dl.save('vospace', 'mount', '')
 
@@ -1507,7 +1246,7 @@ class Get(Task):
 
     def run(self):
         token = getUserToken(self)
-        storeClient.get (token, fr=self.fr.value, to=self.to.value,
+        storeClient.get(token, fr=self.fr.value, to=self.to.value,
                             verbose=self.verbose.value)
 
 
@@ -1530,7 +1269,7 @@ class Put(Task):
 
     def run(self):
         token = getUserToken(self)
-        storeClient.put (token, fr=self.fr.value, to=self.to.value,
+        storeClient.put(token, fr=self.fr.value, to=self.to.value,
                             verbose=self.verbose.value)
 
 
@@ -1683,8 +1422,8 @@ class Resolve(Task):
 
     def run(self):
         token = getUserToken(self)
-        r = requests.get(SM_URL + "resolve?name=%s" %
-                         self.name.value, headers={'X-DL-AuthToken': token})
+        requests.get(SM_URL + "resolve?name=%s" % self.name.value,
+                     headers={'X-DL-AuthToken': token})
 
 
 class StorageProfiles(Task):
@@ -1704,7 +1443,7 @@ class StorageProfiles(Task):
 
     def run(self):
         token = getUserToken(self)
-        print (str(storeClient.list_profiles (token,
+        print(str(storeClient.list_profiles (token,
                 profile=self.profile.value, format=self.format.value)))
 
 
@@ -1747,8 +1486,8 @@ class Launch(Task):
 
     def run(self):
         token = getUserToken(self)
-        r = requests.get(SM_URL + "/rmdir?dir=%s" %
-                         self.dir.value, headers={'X-DL-AuthToken': token})
+        requests.get(SM_URL + "/rmdir?dir=%s" %
+                     self.dir.value, headers={'X-DL-AuthToken': token})
 
 
 class Receiver():
@@ -1763,13 +1502,13 @@ class Receiver():
                                 params, extra):
         self.params = params
         self.received = True
-        print ('Notification:', private_key, sender_id, mtype, params, extra)
+        print('Notification:', private_key, sender_id, mtype, params, extra)
 
     def receiver_call(self, private_key, sender_id, msg_id, mtype,
                                 params, extra):
         self.params = params
         self.received = True
-        print ('Call:', private_key, sender_id, msg_id, mtype, params, extra)
+        print('Call:', private_key, sender_id, msg_id, mtype, params, extra)
         self.client.reply(
             msg_id, {'samp.status': 'samp.ok', 'samp.result': {}})
 
@@ -1819,9 +1558,9 @@ class SiaQuery(Task):
             r = requests.get(SM_URL + "/put?name=%s" %
                              target, headers={'X-DL-AuthToken': token})
             file = open(input).read()
-            resp = requests.put(r.content, data=file, headers={
-                                'Content-type': 'application/octet-stream',
-                                'X-DL-AuthToken': token})
+            requests.put(r.content, data=file, headers={
+                         'Content-type': 'application/octet-stream',
+                         'X-DL-AuthToken': token})
 
         # Query the Data Lab query service
         headers = {'Content-Type': 'text/ascii',
@@ -1838,4 +1577,4 @@ class SiaQuery(Task):
                 file.write(r.content)
                 file.close()
         else:
-            print (r.content)
+            print(r.content)
