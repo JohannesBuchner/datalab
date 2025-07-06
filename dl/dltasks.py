@@ -875,6 +875,47 @@ class QueryProfiles(Task):
                 profile=self.profile.value, format=self.format.value)))
 
 
+################################################
+#  MyDB Tasks
+################################################
+
+class ListMyDB(Task):
+    '''
+        List the user's MyDB tables. [DEPRECATED]
+    '''
+    def __init__(self, datalab):
+        Task.__init__(self, datalab, 'listdb', 'List the user MyDB tables')
+        self.addOption("table", Option("table", "",
+                        "Table name", required=False))
+        self.addStdOptions()
+
+    def run(self):
+        token = getUserToken(self)
+        try:
+            res = queryClient.list (token=token, table=self.table.value)
+        except Exception as e:
+            print ("Error listing MyDB tables: " % str(e))
+        else:
+            print (res)
+
+
+class DropMyDB(Task):
+    '''
+        Drop a user's MyDB table. [DEPRECATED]
+    '''
+    def __init__(self, datalab):
+        Task.__init__(self, datalab, 'dropdb', 'Drop a user MyDB table')
+        self.addOption("table",
+            Option("table", "", "Table name", required=True))
+        self.addStdOptions()
+
+    def run(self):
+        token = getUserToken(self)
+        try:
+            queryClient.drop (token, table=self.table.value)
+        except Exception as e:
+            print ("Error dropping table '%s': %s" % (self.table.value, str(e)))
+
 
 class MyDB_List(Task):
     '''
