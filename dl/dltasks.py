@@ -870,6 +870,7 @@ class Query2 (Task):
                 err = str(e)
                 if err.find("Time-out") > 0:
                     sys.stderr.write("Error: Sync query timeout, try an async query\n")
+                    sys.exit(-1)
                 else:
                     raise e
             else:
